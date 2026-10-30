@@ -1,0 +1,22 @@
+{
+  "$schema": "https://go.kicad.org/pcm/schemas/v1#/definitions/Repository",
+  "name": "Quick Part Import by Jiggolino",
+  "maintainer": {
+    "name": "Jiggolino",
+    "contact": {
+      "github": "https://github.com/Jiggolino"
+    }
+  },
+  "packages": {
+    "url": "https://raw.githubusercontent.com/Jiggolino/kicad-quick-part-import/main/pcm/packages.json",
+    "sha256": "659e5b559407ede50fa5d6fc583dc54b6e43f4496d980172e549353379ac0015",
+    "update_timestamp": 1793379744,
+    "update_time_utc": "2026-10-30 17:02:24"
+  },
+  "resources": {
+    "url": "https://raw.githubusercontent.com/Jiggolino/kicad-quick-part-import/main/pcm/resources.zip",
+    "sha256": "9c1868de0332d8cd66e0cad8220e6cc5afb15d89a995e1e6f243e643e4cabf6a",
+    "update_timestamp": 1793379744,
+    "update_time_utc": "2026-10-30 17:02:24"
+  }
+}

@@ -1,0 +1,31 @@
+# Pushing a tag like v1.0.0 publishes pcm/kicad-quick-part-import-1.0.0.zip as a GitHub release.
+# Build the package first with: python tools/build.py
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find package
+        run: |
+          FILE="pcm/kicad-quick-part-import-${GITHUB_REF_NAME#v}.zip"
+          test -f "$FILE" || { echo "::error::$FILE is missing - run tools/build.py before tagging"; exit 1; }
+          echo "FILE=$FILE" >> "$GITHUB_ENV"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.FILE }}
+          body: |
+            **Install:** KiCad → Plugin and Content Manager → **Install from File…** → pick the zip below.
+
+            Or add `https://raw.githubusercontent.com/Jiggolino/kicad-quick-part-import/main/pcm/repository.json`
+            under Plugin and Content Manager → **Manage…** to get updates automatically.

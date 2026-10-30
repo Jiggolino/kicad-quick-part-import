@@ -1,0 +1,42 @@
+{
+  "$schema": "https://go.kicad.org/pcm/schemas/v1",
+  "name": "Quick Part Import",
+  "description": "Drag & drop part ZIPs from Component Search Engine, SnapEDA, UltraLibrarian or Octopart into a library that lives inside your project",
+  "description_full": "Adds a drop window to the schematic and PCB editor. Drop the ZIP you downloaded from Component Search Engine (SamacSys), SnapEDA, UltraLibrarian or Octopart and the part lands in one library inside the project folder (lib/<Project>.kicad_sym, .pretty and .3dshapes), registered in the project's library tables with ${KIPRJMOD} paths.\n\nSymbols are linked to their footprints and footprints to their 3D models. Importing a part again updates it without duplicates, a failed import never changes anything, and an optional watcher imports part ZIPs as soon as they land in your Downloads folder.\n\nNeeds the KiCad API: Preferences > Plugins > Enable KiCad API.",
+  "identifier": "com.github.Jiggolino.kicad-quick-part-import",
+  "type": "plugin",
+  "author": {
+    "name": "Jiggolino",
+    "contact": {
+      "github": "https://github.com/Jiggolino"
+    }
+  },
+  "maintainer": {
+    "name": "Jiggolino",
+    "contact": {
+      "github": "https://github.com/Jiggolino"
+    }
+  },
+  "license": "MIT",
+  "resources": {
+    "homepage": "https://github.com/Jiggolino/kicad-quick-part-import"
+  },
+  "tags": [
+    "import",
+    "library",
+    "symbol",
+    "footprint",
+    "samacsys",
+    "snapeda",
+    "ultralibrarian",
+    "octopart"
+  ],
+  "versions": [
+    {
+      "version": "1.0.0",
+      "status": "stable",
+      "kicad_version": "9.0",
+      "runtime": "ipc"
+    }
+  ]
+}

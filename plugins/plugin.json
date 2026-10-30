@@ -1,0 +1,31 @@
+{
+  "$schema": "https://go.kicad.org/api/schemas/v1",
+  "identifier": "com.github.Jiggolino.kicad-quick-part-import",
+  "name": "Quick Part Import",
+  "description": "Drop part ZIPs from Component Search Engine, SnapEDA, UltraLibrarian or Octopart to add them to the project's own library",
+  "runtime": {
+    "type": "python",
+    "version": "3"
+  },
+  "actions": [
+    {
+      "identifier": "quick-part-import",
+      "name": "Quick Part Import",
+      "description": "Drop part ZIPs to add them to this project's library",
+      "show-button": true,
+      "scopes": [
+        "schematic",
+        "pcb"
+      ],
+      "entrypoint": "quick_import.py",
+      "icons-light": [
+        "icon-24.png",
+        "icon-48.png"
+      ],
+      "icons-dark": [
+        "icon-24.png",
+        "icon-48.png"
+      ]
+    }
+  ]
+}

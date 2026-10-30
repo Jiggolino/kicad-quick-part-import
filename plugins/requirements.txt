@@ -1,0 +1,4 @@
+# Installed by KiCad into this plugin's Python environment.
+# Both are optional: without them the project is found via KiCad's recent-project list.
+kicad-python   # asks KiCad which project is open
+psutil         # reads the command lines of running KiCad windows
