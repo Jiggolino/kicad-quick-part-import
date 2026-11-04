@@ -17,6 +17,7 @@ import datetime
 import hashlib
 import io
 import json
+import re
 import sys
 import zipfile
 from pathlib import Path
@@ -71,6 +72,10 @@ def main() -> int:
         print(f"plugin.json identifier {plugin['identifier']} != metadata.json {identifier}")
         return 1
     version = metadata["versions"][0]["version"]
+    code_version = re.search(r'^VERSION = "([^"]+)"', (ROOT / "plugins" / "jlc_parts.py").read_text(encoding="utf-8"), re.M)
+    if not code_version or code_version.group(1) != version:
+        print(f"plugins/jlc_parts.py VERSION must be {version}")
+        return 1
     print(f"Building {identifier} {version}")
     validate(metadata)
 

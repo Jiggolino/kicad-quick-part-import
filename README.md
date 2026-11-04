@@ -1,10 +1,18 @@
 # Quick Part Import for KiCad
 
-Drop the ZIP you downloaded from **Component Search Engine (SamacSys)**, **SnapEDA**,
-**UltraLibrarian** or **Octopart** onto a window – the part is in your project, with
-symbol, footprint and 3D model linked and ready to place.
+Get parts into your project without fiddling with libraries:
 
-![Quick Part Import window](docs/screenshot.png)
+- **Search** a part number, pick the **JLC / LCSC** result, click **Add to project** –
+  symbol, footprint and STEP model are downloaded and added.
+- **Drop** the ZIP you downloaded from **Component Search Engine (SamacSys)**,
+  **SnapMagic (SnapEDA)**, **UltraLibrarian** or **Octopart** onto the window.
+
+Either way the part lands in your project with symbol, footprint and 3D model linked and
+ready to place.
+
+| Search JLC / LCSC | Drop a ZIP |
+|---|---|
+| ![Search](docs/search.png) | ![Drop](docs/screenshot.png) |
 
 - **One library per project, inside the project folder** – nothing scattered across global
   libraries, and the project stays portable (zip it, commit it, open it on another PC).
@@ -46,8 +54,17 @@ sets up its Python environment.
 
 1. Open your project, click the **Quick Part Import** button (blue download arrow) in the
    schematic or PCB editor toolbar.
-2. Drag part ZIPs onto the window, or click the drop area to pick files.
+2. Either type a part number into the search box and press Enter, then double-click a
+   result (or **Add to project**) – or drag part ZIPs onto the window.
 3. Place the part: **Add Symbol** → library named like your project.
+
+### Search sources
+
+| Source | How it works |
+|---|---|
+| **JLC / LCSC** | Searched directly (JLCPCB parts search). **Add to project** downloads the part from the EasyEDA library; KiCad's own EasyEDA importer converts it. The symbol gets `LCSC Part #`, manufacturer, datasheet and description fields – ready for JLC assembly BOMs. Type shows Basic / Preferred / Extended. |
+| **Component Search Engine** | Has no public API and needs your (free) account to download. The button opens the part in your browser; download the KiCad ZIP there and it is imported automatically (the next part ZIP within 15 minutes, even with auto-import off). |
+| **SnapMagic** | Same as Component Search Engine. |
 
 The window stays open next to KiCad. Clicking the toolbar button again brings it to the
 front and switches to the project of the editor you clicked in. With several KiCad
@@ -81,8 +98,9 @@ another folder).
 
 ```
 plugins/            the plugin (what KiCad installs)
-  quick_import.py     window, drag & drop, download watcher
+  quick_import.py     window, search, drag & drop, download watcher
   part_importer.py    import logic, no GUI – usable on its own
+  jlc_parts.py        JLC / LCSC search and EasyEDA download
   project_detect.py   finds the project open in KiCad
 metadata.json       package info – bump the version here
 tools/build.py      builds the package and the PCM repository files in pcm/
@@ -93,10 +111,14 @@ Run the tests with KiCad's Python (they use `kicad-cli`):
 
 ```
 "C:\Program Files\KiCad\10.0\bin\python.exe" tests/test_importer.py
+"C:\Program Files\KiCad\10.0\bin\python.exe" tests/test_jlc_parts.py
 ```
 
-Release: bump the version in `metadata.json`, run `python tools/build.py`, commit, then
-push a tag `v<version>` – the workflow attaches the package to a GitHub release.
+`test_jlc_parts.py` runs offline; set `QPI_ONLINE=1` to also import a real part from JLC.
+
+Release: bump the version in `metadata.json` and `plugins/jlc_parts.py`, run
+`python tools/build.py`, commit, then push a tag `v<version>` – the workflow attaches the
+package to a GitHub release.
 
 Tested on Windows with KiCad 10.0. Linux/macOS should work but are untested.
 

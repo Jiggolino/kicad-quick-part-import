@@ -9,14 +9,14 @@
   },
   "packages": {
     "url": "https://raw.githubusercontent.com/Jiggolino/kicad-quick-part-import/main/pcm/packages.json",
-    "sha256": "659e5b559407ede50fa5d6fc583dc54b6e43f4496d980172e549353379ac0015",
-    "update_timestamp": 1793379744,
-    "update_time_utc": "2026-10-30 17:02:24"
+    "sha256": "26be7227388d3b3876d29743b3f06a6495453b8ecca9ea93b6636b672a7e9f41",
+    "update_timestamp": 1793805348,
+    "update_time_utc": "2026-11-04 15:15:48"
   },
   "resources": {
     "url": "https://raw.githubusercontent.com/Jiggolino/kicad-quick-part-import/main/pcm/resources.zip",
     "sha256": "9c1868de0332d8cd66e0cad8220e6cc5afb15d89a995e1e6f243e643e4cabf6a",
-    "update_timestamp": 1793379744,
-    "update_time_utc": "2026-10-30 17:02:24"
+    "update_timestamp": 1793805348,
+    "update_time_utc": "2026-11-04 15:15:48"
   }
 }

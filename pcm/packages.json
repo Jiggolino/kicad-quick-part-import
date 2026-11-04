@@ -2,8 +2,8 @@
   "packages": [
     {
       "name": "Quick Part Import",
-      "description": "Drag & drop part ZIPs from Component Search Engine, SnapEDA, UltraLibrarian or Octopart into a library that lives inside your project",
-      "description_full": "Adds a drop window to the schematic and PCB editor. Drop the ZIP you downloaded from Component Search Engine (SamacSys), SnapEDA, UltraLibrarian or Octopart and the part lands in one library inside the project folder (lib/<Project>.kicad_sym, .pretty and .3dshapes), registered in the project's library tables with ${KIPRJMOD} paths.\n\nSymbols are linked to their footprints and footprints to their 3D models. Importing a part again updates it without duplicates, a failed import never changes anything, and an optional watcher imports part ZIPs as soon as they land in your Downloads folder.\n\nNeeds the KiCad API: Preferences > Plugins > Enable KiCad API.",
+      "description": "Search JLC/LCSC parts and add them in one click, or drag & drop part ZIPs from Component Search Engine, SnapMagic, UltraLibrarian or Octopart, into a library that lives inside your project",
+      "description_full": "Adds a part window to the schematic and PCB editor.\n\nSearch: type a part number, pick a JLC/LCSC result and click Add - symbol, footprint and STEP model are downloaded, converted by KiCad itself and added, with the LCSC Part # field set for JLC assembly. Component Search Engine and SnapMagic results open in your browser; the ZIP you download there is imported automatically.\n\nDrop: drop the ZIP you downloaded from Component Search Engine (SamacSys), SnapMagic (SnapEDA), UltraLibrarian or Octopart.\n\nEverything lands in one library inside the project folder (lib/<Project>.kicad_sym, .pretty and .3dshapes), registered in the project's library tables with ${KIPRJMOD} paths. Symbols are linked to their footprints and footprints to their 3D models. Importing a part again updates it without duplicates and a failed import never changes anything.\n\nNeeds the KiCad API: Preferences > Plugins > Enable KiCad API.",
       "identifier": "com.github.Jiggolino.kicad-quick-part-import",
       "type": "plugin",
       "author": {
@@ -29,10 +29,24 @@
         "footprint",
         "samacsys",
         "snapeda",
+        "snapmagic",
         "ultralibrarian",
-        "octopart"
+        "octopart",
+        "jlcpcb",
+        "lcsc",
+        "easyeda"
       ],
       "versions": [
+        {
+          "version": "1.1.0",
+          "status": "stable",
+          "kicad_version": "9.0",
+          "runtime": "ipc",
+          "download_url": "https://raw.githubusercontent.com/Jiggolino/kicad-quick-part-import/main/pcm/kicad-quick-part-import-1.1.0.zip",
+          "download_sha256": "b98d1e8bb71f3cba8e41dce95089f6241a6bfa843bfb7c7dde88b72f006875cf",
+          "download_size": 34874,
+          "install_size": 109387
+        },
         {
           "version": "1.0.0",
           "status": "stable",

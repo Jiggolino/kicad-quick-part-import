@@ -186,19 +186,19 @@ class SymbolLib:
         return "\n".join(lines) + "\n)\n"
 
 
-def get_symbol_footprint(block: str) -> str:
+def get_symbol_property(block: str, name: str) -> str:
     _, _, kids = _children(block)
     for start, end in kids:
         child = block[start:end]
         keyword, key, _ = _head(child)
-        if keyword == "property" and key == "Footprint":
+        if keyword == "property" and key == name:
             value = re.match(rf'\(\s*property\s+{_ATOM}\s+({_ATOM})', child)
             return _unquote(value.group(1)) if value else ""
     return ""
 
 
-def set_symbol_footprint(block: str, footprint: str) -> str:
-    """Point the symbol's Footprint field at footprint ("Lib:Name"), adding it if needed."""
+def set_symbol_property(block: str, name: str, value: str) -> str:
+    """Set a symbol field's value, adding it as a hidden field if the symbol lacks it."""
     _, _, kids = _children(block)
     last_property_end = -1
     for start, end in kids:
@@ -207,17 +207,26 @@ def set_symbol_footprint(block: str, footprint: str) -> str:
         if keyword != "property":
             continue
         last_property_end = end
-        if key == "Footprint":
-            value = re.match(rf'(\(\s*property\s+{_ATOM}\s+)({_ATOM})', child)
-            if value:
-                a, b = value.span(2)
-                return block[: start + a] + _quote(footprint) + block[start + b :]
+        if key == name:
+            match = re.match(rf'(\(\s*property\s+{_ATOM}\s+)({_ATOM})', child)
+            if match:
+                a, b = match.span(2)
+                return block[: start + a] + _quote(value) + block[start + b :]
     new_property = (
-        f'(property "Footprint" {_quote(footprint)} (at 0 0 0)'
+        f"(property {_quote(name)} {_quote(value)} (at 0 0 0)"
         " (effects (font (size 1.27 1.27)) (hide yes)))"
     )
     insert_at = last_property_end if last_property_end != -1 else _children(block)[1]
     return block[:insert_at] + "\n\t\t" + new_property + block[insert_at:]
+
+
+def get_symbol_footprint(block: str) -> str:
+    return get_symbol_property(block, "Footprint")
+
+
+def set_symbol_footprint(block: str, footprint: str) -> str:
+    """Point the symbol's Footprint field at footprint ("Lib:Name"), adding it if needed."""
+    return set_symbol_property(block, "Footprint", footprint)
 
 
 # ----------------------------------------------------------------------------
@@ -711,12 +720,24 @@ class ProjectLibrary:
     # -- public ---------------------------------------------------------------
 
     def import_paths(self, paths: list[Path], label: str | None = None) -> ImportResult:
+        """Import dropped ZIPs, folders or loose KiCad files."""
         paths = [Path(p) for p in paths]
-        result = ImportResult(source=label or ", ".join(p.name for p in paths))
         if not self.project_dir.is_dir():
             raise PartImportError(f"The project folder does not exist: {self.project_dir}")
+        fallback = re.sub(r"^(LIB_|ul_)", "", paths[0].stem) if paths else "part"
+        return self.import_files(read_sources(paths), label or ", ".join(p.name for p in paths), fallback)
 
-        files = read_sources(paths)
+    def import_files(
+        self,
+        files: list[SourceFile],
+        label: str,
+        fallback_name: str = "part",
+        fields: dict[str, str] | None = None,
+    ) -> ImportResult:
+        """Import already-read files; fields are set on every imported symbol (empty = skip)."""
+        result = ImportResult(source=label)
+        if not self.project_dir.is_dir():
+            raise PartImportError(f"The project folder does not exist: {self.project_dir}")
         plan = _plan(files)
         if not (plan.symbols or plan.footprints or plan.legacy_footprints or plan.models):
             raise PartImportError(
@@ -733,6 +754,9 @@ class ProjectLibrary:
             footprints = self._load_footprints(plan, tmp, result)
             models_used = self._link_models(footprints, plan.models, result)
             symbols = self._load_symbols(plan, tmp, result)
+            for key, value in (fields or {}).items():
+                if value:
+                    symbols = [(name, set_symbol_property(block, key, value)) for name, block in symbols]
             result.links = self._link_footprints(symbols, footprints, fp_change.nickname)
             merged = self._merge_symbols(symbols, tmp, result) if symbols else None
 
@@ -771,7 +795,7 @@ class ProjectLibrary:
         result.part = (
             (result.symbols[0] if result.symbols else "")
             or (result.footprints[0] if result.footprints else "")
-            or re.sub(r"^(LIB_|ul_)", "", paths[0].stem if paths else "part")
+            or fallback_name
         )
         log.info("Imported %s into %s: %s", result.source, self.sym_file, result.summary())
         return result

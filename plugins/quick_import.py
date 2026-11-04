@@ -219,6 +219,9 @@ class DownloadWatcher(threading.Thread):
 def run_gui(args: list[str]) -> int:
     import wx
 
+    import webbrowser
+
+    import jlc_parts
     import part_importer as pi
     import project_detect
 
@@ -313,7 +316,7 @@ def run_gui(args: list[str]) -> int:
             elif self.hover:
                 title, sub = "Release to import", ""
             else:
-                title, sub = "Drop part ZIPs here", "Component Search Engine · SnapEDA · UltraLibrarian · Octopart"
+                title, sub = "Drop part ZIPs here", "Component Search Engine · SnapMagic · UltraLibrarian · Octopart"
             big = self.GetFont().Bold()
             big.SetPointSize(big.GetPointSize() + 5)
             gc.SetFont(big, fg)
@@ -332,8 +335,8 @@ def run_gui(args: list[str]) -> int:
 
     class MainFrame(wx.Frame):
         def __init__(self, project_hint: Path | None) -> None:
-            super().__init__(None, title="Quick Part Import", size=wx.Size(600, 640))
-            self.SetSize(self.FromDIP(wx.Size(600, 640)))
+            super().__init__(None, title="Quick Part Import", size=wx.Size(620, 700))
+            self.SetSize(self.FromDIP(wx.Size(620, 700)))
             self.SetMinSize(self.FromDIP(wx.Size(440, 480)))
             icon = HERE / "icon-48.png"
             if icon.exists():
@@ -351,8 +354,11 @@ def run_gui(args: list[str]) -> int:
             self.watcher: DownloadWatcher | None = None
             self.server: InstanceServer | None = None
             self.closing = False
+            self.catch_count = 0  # downloads to import after opening a vendor page
+            self.catch_deadline = 0.0
 
             self._build()
+            self.start_watcher()
             self.worker = threading.Thread(target=self._work, daemon=True)
             self.worker.start()
 
@@ -399,10 +405,22 @@ def run_gui(args: list[str]) -> int:
             self.project_path.SetForegroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_GRAYTEXT))
             root.AddSpacer(self.FromDIP(4))
             root.Add(self.project_path, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, pad)
+            root.AddSpacer(self.FromDIP(10))
+
+            self.search = wx.SearchCtrl(panel, style=wx.TE_PROCESS_ENTER)
+            self.search.SetDescriptiveText("Search JLC / LCSC parts – e.g. TPS54331, STM32G474, C9865")
+            self.search.ShowCancelButton(True)
+            self.search.Bind(wx.EVT_SEARCH, lambda e: self.run_search())
+            self.search.Bind(wx.EVT_TEXT_ENTER, lambda e: self.run_search())
+            self.search.Bind(wx.EVT_SEARCH_CANCEL, lambda e: self.close_results())
+            root.Add(self.search, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, pad)
             root.AddSpacer(self.FromDIP(8))
 
-            self.zone = DropZone(panel, self.on_zone_click)
-            root.Add(self.zone, 3, wx.EXPAND | wx.LEFT | wx.RIGHT, pad)
+            self.book = wx.Simplebook(panel)
+            self.zone = DropZone(self.book, self.on_zone_click)
+            self.book.AddPage(self.zone, "drop")
+            self.book.AddPage(self._build_results(self.book), "results")
+            root.Add(self.book, 3, wx.EXPAND | wx.LEFT | wx.RIGHT, pad)
 
             self.log = wx.TextCtrl(
                 panel, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_RICH2 | wx.TE_NOHIDESEL
@@ -432,8 +450,54 @@ def run_gui(args: list[str]) -> int:
             root.Add(foot, 0, wx.EXPAND | wx.ALL, pad)
 
             panel.SetSizer(root)
-            for window in (panel, self.zone, self.log, self.project_name, self.project_path):
+            for window in (panel, self.zone, self.log, self.project_name, self.project_path, self.results):
                 window.SetDropTarget(FileDrop(self))
+
+        def _build_results(self, parent: wx.Window) -> wx.Panel:
+            page = wx.Panel(parent)
+            box = wx.BoxSizer(wx.VERTICAL)
+            self.results = wx.ListCtrl(page, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
+            for title, width in (("Part", 150), ("Manufacturer", 110), ("Package", 85), ("LCSC", 75), ("Type", 70), ("Stock", 65)):
+                self.results.AppendColumn(title, width=self.FromDIP(width))
+            self.results.Bind(wx.EVT_SIZE, self._fit_columns)
+            self.results.Bind(wx.EVT_LIST_ITEM_SELECTED, lambda e: self.show_part_info())
+            self.results.Bind(wx.EVT_LIST_ITEM_ACTIVATED, lambda e: self.add_selected())
+            box.Add(self.results, 1, wx.EXPAND)
+
+            self.result_info = wx.StaticText(page, label="", style=wx.ST_ELLIPSIZE_END)
+            self.result_info.SetForegroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_GRAYTEXT))
+            box.Add(self.result_info, 0, wx.EXPAND | wx.TOP, self.FromDIP(6))
+
+            row = wx.BoxSizer(wx.HORIZONTAL)
+            self.add_btn = wx.Button(page, label="Add to project")
+            self.add_btn.SetToolTip("Download symbol, footprint and 3D model from JLC/LCSC (EasyEDA) and add them")
+            self.add_btn.Bind(wx.EVT_BUTTON, lambda e: self.add_selected())
+            sheet_btn = wx.Button(page, label="Datasheet")
+            sheet_btn.Bind(wx.EVT_BUTTON, lambda e: self.open_datasheet())
+            back_btn = wx.Button(page, label="Back to drop zone")
+            back_btn.Bind(wx.EVT_BUTTON, lambda e: self.close_results())
+            row.Add(self.add_btn, 0)
+            row.Add(sheet_btn, 0, wx.LEFT, self.FromDIP(6))
+            row.AddStretchSpacer()
+            row.Add(back_btn, 0)
+            box.Add(row, 0, wx.EXPAND | wx.TOP, self.FromDIP(6))
+
+            other = wx.BoxSizer(wx.HORIZONTAL)
+            other.Add(wx.StaticText(page, label="Get it from:"), 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, self.FromDIP(6))
+            tip = "Opens the part in your browser – download the KiCad ZIP there and it is added automatically"
+            for label, attr, fallback in (
+                ("Component Search Engine", "cse_url", jlc_parts.cse_search_url),
+                ("SnapMagic", "snapmagic_url", jlc_parts.snapmagic_search_url),
+            ):
+                button = wx.Button(page, label=label)
+                button.SetToolTip(tip)
+                button.Bind(wx.EVT_BUTTON, lambda e, a=attr, f=fallback, n=label: self.open_vendor(n, a, f))
+                other.Add(button, 0, wx.RIGHT, self.FromDIP(6))
+            box.Add(other, 0, wx.EXPAND | wx.TOP, self.FromDIP(6))
+            page.SetSizer(box)
+            self.found: list = []
+            self.search_id = 0
+            return page
 
         # -- logging into the window ------------------------------------------------
 
@@ -559,27 +623,135 @@ def run_gui(args: list[str]) -> int:
                 label = ", ".join(p.name for p in loose[:3]) + (" …" if len(loose) > 3 else "")
                 groups.append((loose, label))
             for group, label in groups:
-                self.pending += 1
-                self.jobs.put((self.project, group, label))
+                self.queue_job(label, lambda library, g=group, l=label: library.import_paths(g, l))
+
+        def queue_job(self, label: str, run) -> None:
+            """run(ProjectLibrary) -> ImportResult is executed on the import thread."""
+            self.pending += 1
+            self.jobs.put((self.project, run, label))
             self.zone.set_busy(self.pending)
 
         def import_download(self, path: Path) -> None:
             if self.closing:
                 return
+            caught = self.catch_count > 0 and time.monotonic() < self.catch_deadline
+            if not (self.watch_box.GetValue() or caught):
+                return
             if self.project is None:
                 self.log_line("⚠", f"New download {path.name} skipped – no project selected.", "warn")
                 return
+            if caught and not self.watch_box.GetValue():
+                self.catch_count -= 1
             self.log_line("⬇", f"New download: {path.name}", "info")
             self.import_files([str(path)])
+
+        # -- searching -----------------------------------------------------------------
+
+        def run_search(self) -> None:
+            query = self.search.GetValue().strip()
+            if not query:
+                self.close_results()
+                return
+            if (query, round(time.monotonic() * 2)) == getattr(self, "_last_search", None):
+                return  # Enter can arrive as both EVT_SEARCH and EVT_TEXT_ENTER
+            self._last_search = (query, round(time.monotonic() * 2))
+            self.search_id += 1
+            request = self.search_id
+            self.results.DeleteAllItems()
+            self.found = []
+            self.result_info.SetLabel(f"Searching JLC / LCSC for “{query}” …")
+            self.book.SetSelection(1)
+
+            def work() -> None:
+                try:
+                    parts, error = jlc_parts.search(query), None
+                except pi.PartImportError as e:
+                    parts, error = [], str(e)
+                except Exception as e:
+                    log.exception("Search failed")
+                    parts, error = [], f"Search failed: {e}"
+                wx.CallAfter(self._show_results, request, query, parts, error)
+
+            threading.Thread(target=work, daemon=True).start()
+
+        def _show_results(self, request: int, query: str, parts: list, error: str | None) -> None:
+            if self.closing or request != self.search_id:
+                return  # an older search finished after a newer one started
+            self.found = parts
+            for part in parts:
+                row = self.results.Append(
+                    [part.mpn, part.manufacturer, part.package, part.lcsc, part.kind, f"{part.stock:,}".replace(",", "'")]
+                )
+                if part.stock == 0:
+                    self.results.SetItemTextColour(row, wx.SystemSettings.GetColour(wx.SYS_COLOUR_GRAYTEXT))
+            if error:
+                self.result_info.SetLabel(f"✖ {error}")
+            elif not parts:
+                self.result_info.SetLabel(f"No JLC / LCSC part found for “{query}” – try the buttons below.")
+            else:
+                self.results.Select(0)
+                self.results.Focus(0)
+                self.results.SetFocus()
+            self.add_btn.Enable(bool(parts))
+
+        def _fit_columns(self, event: wx.SizeEvent) -> None:
+            """Give the Part column whatever width the other columns leave."""
+            event.Skip()
+            others = sum(self.results.GetColumnWidth(i) for i in range(1, self.results.GetColumnCount()))
+            scrollbar = wx.SystemSettings.GetMetric(wx.SYS_VSCROLL_X, self.results)
+            self.results.SetColumnWidth(0, max(self.FromDIP(90), self.results.GetClientSize().width - others - scrollbar))
+
+        def selected_part(self):
+            index = self.results.GetFirstSelected()
+            return self.found[index] if 0 <= index < len(self.found) else None
+
+        def show_part_info(self) -> None:
+            part = self.selected_part()
+            if part:
+                self.result_info.SetLabel(part.description or part.package)
+                self.result_info.SetToolTip(f"{part.mpn} – {part.description}")
+
+        def add_selected(self) -> None:
+            part = self.selected_part()
+            if part is None:
+                return
+            if self.project is None and not self.choose_project():
+                return
+            self.log_line("", f"Getting {part.mpn} ({part.lcsc}) from JLC / LCSC …", "info")
+            self.queue_job(f"{part.mpn} ({part.lcsc})", lambda library, p=part: jlc_parts.import_part(library, p))
+
+        def open_datasheet(self) -> None:
+            part = self.selected_part()
+            if part and (part.datasheet or part.url):
+                webbrowser.open(part.datasheet or part.url)
+
+        def open_vendor(self, name: str, url_attr: str, search_url) -> None:
+            part = self.selected_part()
+            query = part.mpn if part else self.search.GetValue().strip()
+            if not query:
+                return
+            webbrowser.open(getattr(part, url_attr) if part else search_url(query))
+            self.catch_count += 1
+            self.catch_deadline = time.monotonic() + 15 * 60
+            self.log_line(
+                "↗",
+                f"Opened {query} on {name}. Download the KiCad ZIP there – it is added to "
+                f"{self.project.stem if self.project else 'the project'} automatically.",
+                "note",
+            )
+
+        def close_results(self) -> None:
+            self.search_id += 1
+            self.book.SetSelection(0)
 
         def _work(self) -> None:
             while True:
                 job = self.jobs.get()
                 if job is None:
                     return
-                project, paths, label = job
+                project, run, label = job
                 try:
-                    result = pi.import_into_project(project, paths, self.cli_path, label)
+                    result = run(pi.ProjectLibrary(project, pi.KicadCli(self.cli_path)))
                     outcome = (result, None)
                 except pi.PartImportError as e:
                     log.warning("Import of %s failed: %s", label, e)
@@ -614,16 +786,15 @@ def run_gui(args: list[str]) -> int:
 
         # -- options -------------------------------------------------------------------
 
+        def start_watcher(self) -> None:
+            """Always runs: imports when auto-import is on, or right after a vendor page was opened."""
+            self.watcher = DownloadWatcher(self.watch_folder, lambda p: wx.CallAfter(self.import_download, p))
+            self.watcher.start()
+
         def toggle_watch(self) -> None:
             on = self.watch_box.GetValue()
-            if self.watcher:
-                self.watcher.stop()
-                self.watcher = None
             if on:
-                folder = self.watch_folder
-                self.watcher = DownloadWatcher(folder, lambda p: wx.CallAfter(self.import_download, p))
-                self.watcher.start()
-                self.log_line("", f"Watching {folder} for new part ZIPs.", "info")
+                self.log_line("", f"Watching {self.watch_folder} for new part ZIPs.", "info")
             self.settings["watch_downloads"] = on
             save_settings(self.settings)
 
@@ -706,6 +877,24 @@ def run_gui(args: list[str]) -> int:
 
         if drops:
             wx.CallLater(1500, lambda: frame.import_files(drops))
+        if "--search" in args:  # search, then add the first hit
+            query = args[args.index("--search") + 1]
+
+            def add_when_found(tries: int = 0) -> None:
+                if frame.found:
+                    frame.add_selected()
+                elif tries < 60:
+                    wx.CallLater(250, add_when_found, tries + 1)
+
+            def vendor_when_found(tries: int = 0) -> None:  # open CSE (browser stubbed) instead of adding
+                if frame.found:
+                    webbrowser.open = lambda url, *a, **k: log.info("SELFTEST browser: %s", url) or True
+                    frame.open_vendor("Component Search Engine", "cse_url", jlc_parts.cse_search_url)
+                elif tries < 60:
+                    wx.CallLater(250, vendor_when_found, tries + 1)
+
+            then = vendor_when_found if "--vendor" in args else add_when_found
+            wx.CallLater(1200, lambda: (frame.search.SetValue(query), frame.run_search(), then()))
         wx.CallLater(2500, finish)
 
     app.MainLoop()
